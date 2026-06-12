@@ -79,7 +79,11 @@ class AdsPipeline:
         self.run_stats = {
             "duration_sec": round(total, 2),
             "auction_rows": len(transformed["auctions"]),
-            "supply_rows": len(transformed["supply"]),
+            "supply_rows": (
+                len(transformed["supply"])
+                if transformed.get("supply") is not None
+                else 0
+            ),
             "kpi_rows": len(transformed["kpi_snapshots"]),
         }
         return self
@@ -112,12 +116,15 @@ class AdsPipeline:
                 "[AdsPipeline] Using in-memory datasets (skipping CSV extraction)"
             )
             extractor = InMemoryExtractor(datasets)
-            return {
+            result = {
                 "auctions": extractor.extract("auctions"),
-                "supply": extractor.extract("supply"),
                 "advertisers": extractor.extract("advertisers"),
                 "campaigns": extractor.extract("campaigns"),
             }
+            result["supply"] = (
+                extractor.extract("supply") if "supply" in datasets else None
+            )
+            return result
 
         self._log(f"[AdsPipeline] Extracting CSVs from {self.data_dir}")
         extractor = CSVExtractor(self.data_dir)
@@ -134,7 +141,11 @@ class AdsPipeline:
         auctions = AuctionTransformer().transform(raw["auctions"])
 
         self._log("[AdsPipeline] Transforming supply data...")
-        supply = SupplyTransformer().transform(raw["supply"])
+        supply = (
+            SupplyTransformer().transform(raw["supply"])
+            if raw.get("supply") is not None
+            else None
+        )
 
         self._log("[AdsPipeline] Generating KPI snapshots...")
         kpi_daily = KPITransformer().transform(
@@ -156,15 +167,16 @@ class AdsPipeline:
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
 
         # Dimension tables (raw)
-        self.loader.load(raw["advertisers"], "dim_advertiser", strategy="replace")
-        self.loader.load(raw["campaigns"], "dim_campaign", strategy="replace")
+        self.loader.load(raw["advertisers"], "dim_advertiser", if_exists="replace")
+        self.loader.load(raw["campaigns"], "dim_campaign", if_exists="replace")
 
         # Fact tables (transformed)
-        self.loader.load(transformed["auctions"], "fact_auctions", strategy="replace")
-        self.loader.load(transformed["supply"], "fact_supply", strategy="replace")
+        self.loader.load(transformed["auctions"], "fact_auctions", if_exists="replace")
+        if transformed.get("supply") is not None:
+            self.loader.load(transformed["supply"], "fact_supply", if_exists="replace")
 
         # KPI snapshots
-        self.loader.load(transformed["kpi_snapshots"], "kpi_daily", strategy="replace")
+        self.loader.load(transformed["kpi_snapshots"], "kpi_daily", if_exists="replace")
 
         self._log("[AdsPipeline] Load complete.")
 
