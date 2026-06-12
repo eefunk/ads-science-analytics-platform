@@ -17,7 +17,7 @@ metrics. The below_floor_rate is the one I find most useful for catching
 problems — a spike in below-floor bids usually means something upstream broke.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Callable, Optional
 import numpy as np
 import pandas as pd
@@ -34,7 +34,7 @@ class KPIDefinition:
     alert_threshold: Optional[float]
     higher_is_better: bool
     category: str  # "delivery", "revenue", "efficiency", "quality"
-    compute: Callable[[pd.DataFrame], pd.Series]
+    compute: Callable[[pd.DataFrame], float]
     owner: str = "Ads Science"
     notes: str = ""
 
@@ -63,7 +63,7 @@ KPI_REGISTRY: list[KPIDefinition] = [
     KPIDefinition(
         name="bid_spread",
         description=(
-            "Mean bid spread = (winning_bid − clearing_price) / winning_bid. "
+            "Mean bid spread = (winning_bid - clearing_price) / winning_bid. "
             "Lower spread indicates efficient auction pricing."
         ),
         unit="ratio",
@@ -135,9 +135,7 @@ KPI_BY_NAME = {k.name: k for k in KPI_REGISTRY}
 # ── KPI Engine ────────────────────────────────────────────────────────────────
 
 class KPIEngine:
-    """
-    Compute, track, and alert on standardized KPIs.
-    """
+    """Compute, track, and alert on standardized KPIs."""
 
     def __init__(self, auctions: pd.DataFrame):
         self.auctions = auctions
@@ -237,4 +235,24 @@ class KPIEngine:
             for seg_val, grp in df.groupby(group_col, observed=True):
                 agg = grp.resample(freq).apply(
                     lambda x: kpi.compute(x) if len(x) > 0 else np.nan
-   
+                ).rename("value")
+                agg = agg.reset_index()
+                agg[group_col] = seg_val
+                results.append(agg)
+            result = pd.concat(results, ignore_index=True)
+        else:
+            result = (
+                df.resample(freq)
+                .apply(lambda x: kpi.compute(x) if len(x) > 0 else np.nan)
+                .rename("value")
+                .reset_index()
+            )
+
+        result["rolling_avg"] = result["value"].rolling(7, min_periods=1).mean().round(6)
+        result["kpi"] = kpi_name
+        return result
+
+    def alerts(self) -> pd.DataFrame:
+        """Return only KPIs currently in alert state."""
+        all_kpis = self.compute_all()
+        return all_kpis[all_kpis["status"] == "alert"].reset_index(drop=True)

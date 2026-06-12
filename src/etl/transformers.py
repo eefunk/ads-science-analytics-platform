@@ -4,7 +4,6 @@ Transformers: Clean, enrich, and model raw ad auction data.
 
 import numpy as np
 import pandas as pd
-from typing import Optional
 
 
 class AuctionTransformer:

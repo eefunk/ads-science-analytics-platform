@@ -2,7 +2,6 @@
 Extractors: Pull raw data from various sources (CSV, database, API stubs).
 """
 
-import os
 import sqlite3
 import pandas as pd
 from pathlib import Path

@@ -1,7 +1,6 @@
 """Unit tests for auction analytics, supply analytics, and KPI framework."""
 
 import pytest
-import pandas as pd
 import sys
 from pathlib import Path
 

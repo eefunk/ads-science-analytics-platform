@@ -6,7 +6,6 @@ floor price optimization, and supply-demand balance.
 
 import numpy as np
 import pandas as pd
-from scipy.optimize import minimize_scalar
 from typing import Optional
 
 

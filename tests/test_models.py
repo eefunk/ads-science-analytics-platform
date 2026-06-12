@@ -1,7 +1,6 @@
 """Unit tests for ML models: FillRatePredictor, ECPMPredictor, AnomalyDetectors."""
 
 import pytest
-import pandas as pd
 import numpy as np
 import sys
 from pathlib import Path

@@ -12,11 +12,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from pathlib import Path
 
 from data.generators.auction_data_generator import generate_all
 from src.etl.transformers import AuctionTransformer, SupplyTransformer, KPITransformer

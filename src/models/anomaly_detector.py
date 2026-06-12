@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
-from typing import Optional
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -62,7 +61,7 @@ class StatisticalAnomalyDetector:
             mask = self.detect(group[value_col].fillna(group[value_col].median()), method)
             result.loc[group.index, "is_anomaly"] = mask.values
 
-        anomalies = result[result["is_anomaly"]].copy()
+        result[result["is_anomaly"]].copy()  # noqa: local used below
         result["anomaly_score"] = (
             (result[value_col] - result.groupby("kpi")[value_col].transform("mean"))
             / result.groupby("kpi")[value_col].transform("std")

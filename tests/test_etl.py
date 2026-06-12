@@ -1,10 +1,7 @@
 """Unit tests for ETL pipeline components."""
 
 import pytest
-import pandas as pd
-import numpy as np
 from pathlib import Path
-import tempfile
 import sys
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
@@ -12,9 +9,8 @@ sys.path.insert(0, str(Path(__file__).parents[1]))
 from data.generators.auction_data_generator import (
     generate_advertisers, generate_campaigns, generate_auction_events
 )
-from src.etl.transformers import AuctionTransformer, SupplyTransformer, KPITransformer
+from src.etl.transformers import AuctionTransformer, KPITransformer
 from src.etl.loaders import SQLiteLoader
-from src.etl.extractors import InMemoryExtractor
 from src.etl.pipeline import AdsPipeline
 
 

@@ -2,11 +2,11 @@
 Auction outcome prediction: fill probability and expected eCPM.
 
 Two models:
-- FillRatePredictor: GBT classifier → P(fill) given auction features
-- ECPMPredictor: GBT regressor → expected eCPM for filled auctions
+- FillRatePredictor: GBT classifier -> P(fill) given auction features
+- ECPMPredictor: GBT regressor -> expected eCPM for filled auctions
 
 Why GBT over logistic/linear regression? The relationship between bid floor
-and fill probability is nonlinear, and placement × device interactions matter.
+and fill probability is nonlinear, and placement x device interactions matter.
 GBT handles both without manual feature engineering. I tried logistic regression
 first and the ROC-AUC was about 8 points lower.
 
@@ -22,15 +22,14 @@ serving skew if handled ad hoc.
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score, average_precision_score, mean_absolute_error, r2_score
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder
 import joblib
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -188,4 +187,21 @@ class ECPMPredictor:
         y_pred = self.model.predict(X_test)
         self.metrics = {
             "mae_log": round(mean_absolute_error(y_test, y_pred), 4),
-           
+            "r2": round(r2_score(y_test, y_pred), 4),
+            "mae_ecpm": round(mean_absolute_error(np.expm1(y_test), np.expm1(y_pred)), 4),
+            "test_samples": len(X_test),
+        }
+        print(f"[ECPMPredictor] R2={self.metrics['r2']} | MAE_eCPM={self.metrics['mae_ecpm']:.4f}")
+        return self
+
+    def predict(self, df: pd.DataFrame) -> np.ndarray:
+        self._check_fitted()
+        df = df.copy()
+        if "hour" not in df.columns:
+            df["hour"] = pd.to_datetime(df["timestamp"]).dt.hour
+        X = df[CATEGORICAL_FEATURES + NUMERIC_FEATURES]
+        return np.expm1(self.model.predict(X))
+
+    def _check_fitted(self):
+        if not self._is_fitted:
+            raise RuntimeError("ECPMPredictor not fitted. Call .fit() first.")

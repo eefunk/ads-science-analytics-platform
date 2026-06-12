@@ -12,7 +12,6 @@ The FeatureReleaseAnalyzer at the bottom handles causal measurement — using
 diff-in-differences rather than raw before/after to control for time trends.
 """
 
-import numpy as np
 import pandas as pd
 from scipy import stats
 from typing import Optional
@@ -181,7 +180,7 @@ class AuctionAnalyzer:
         """
         Simulate the revenue/fill tradeoff of changing bid floors.
 
-        Raises floors → some auctions that previously filled now don't (fill rate drops),
+        Raises floors -> some auctions that previously filled now don't (fill rate drops),
         but those that do fill generate higher clearing prices (revenue per fill goes up).
         The net effect on total revenue depends on the shape of the bid distribution.
 
@@ -217,7 +216,7 @@ class AuctionAnalyzer:
         self, from_format: str = "second_price", to_format: str = "first_price"
     ) -> dict:
         """
-        Estimate revenue impact of switching second-price → first-price.
+        Estimate revenue impact of switching second-price -> first-price.
 
         In a second-price auction, the winner pays the second-highest bid (approximated
         here as 85-97% of the winning bid). In a first-price auction, they pay their
@@ -250,7 +249,7 @@ class FeatureReleaseAnalyzer:
     """
     Causal measurement for feature releases.
 
-    The core method is diff_in_differences — preferred over raw before/after
+    The core method is diff_in_diff — preferred over raw before/after
     comparisons because it controls for time trends by using a control group.
     If fill rate was already trending up seasonally, a naive before/after
     comparison would attribute that to the feature. DiD subtracts out whatever
@@ -278,4 +277,72 @@ class FeatureReleaseAnalyzer:
         The treatment column marks which auctions received the feature post-release,
         but we need both pre and post observations for both groups to run DiD.
         So we identify the *treatment group* by which placement types ever had
-        treatment=1, then split by release_period. This gives us
+        treatment=1, then split by release_period. This gives us four cells:
+        treated x pre, treated x post, control x pre, control x post.
+
+        The t-test on post-period treated vs. pre-period treated gives a p-value,
+        but treat it with caution on small samples — it has low power.
+        """
+        df = self.auctions.copy()
+
+        if metric == "fill_rate":
+            df["metric_val"] = df["filled"]
+        elif metric == "ecpm":
+            df["metric_val"] = df["ecpm"]
+        elif metric == "revenue":
+            df["metric_val"] = df["revenue_usd"]
+        else:
+            df["metric_val"] = df[metric]
+
+        # treated_group = 1 for placements that receive the feature (in both periods)
+        treated_placements = set(
+            df.loc[df[treatment_col] == 1, "placement_type"].unique()
+        )
+        df["treated_group"] = df["placement_type"].isin(treated_placements).astype(int)
+
+        groups = df.groupby(["treated_group", period_col], observed=True)["metric_val"].mean()
+
+        try:
+            pre_control  = float(groups.get((0, "pre"),  0))
+            post_control = float(groups.get((0, "post"), 0))
+            pre_treated  = float(groups.get((1, "pre"),  0))
+            post_treated = float(groups.get((1, "post"), 0))
+        except (KeyError, TypeError):
+            return {"error": "Missing required treatment/period combinations"}
+
+        did_estimate = (post_treated - pre_treated) - (post_control - pre_control)
+
+        pre_vals  = df[(df["treated_group"] == 1) & (df[period_col] == "pre")]["metric_val"]
+        post_vals = df[(df["treated_group"] == 1) & (df[period_col] == "post")]["metric_val"]
+        if len(pre_vals) < 2 or len(post_vals) < 2:
+            t_stat, p_val = float("nan"), float("nan")
+        else:
+            t_stat, p_val = stats.ttest_ind(post_vals.dropna(), pre_vals.dropna())
+
+        rel_lift = round(float(did_estimate / pre_treated * 100), 2) if pre_treated != 0 else 0.0
+        p_val_clean = round(float(p_val), 4) if p_val == p_val else None
+
+        return {
+            "metric":              metric,
+            "pre_control":         round(pre_control,        4),
+            "post_control":        round(post_control,       4),
+            "pre_treated":         round(pre_treated,        4),
+            "post_treated":        round(post_treated,       4),
+            "did_estimate":        round(float(did_estimate), 4),
+            "relative_lift_pct":   rel_lift,
+            "t_statistic":         round(float(t_stat), 3) if t_stat == t_stat else None,
+            "p_value":             p_val_clean,
+            "significant_at_5pct": bool(p_val < 0.05) if p_val_clean is not None else None,
+        }
+
+    def adoption_curve(self, freq: str = "D") -> pd.DataFrame:
+        """Track feature adoption (treatment rate) over time."""
+        df = self.auctions[self.auctions["release_period"] == "post"].copy()
+        df["timestamp"] = pd.to_datetime(df["timestamp"])
+        return (
+            df.groupby(pd.Grouper(key="timestamp", freq=freq))["treatment"]
+            .agg(adoption_rate="mean", n_events="count")
+            .round(4)
+            .reset_index()
+            .rename(columns={"timestamp": "period"})
+        )
