@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Data & warehouse (generated artifacts)
+data/sample/*.csv
+warehouse/*.db
+*.db
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Testing
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/
+
+# Model artifacts
+*.pkl
+*.joblib
+models/saved/
+pytest-cache-files*/
+.pytest_cache/
+*.pyc
+__pycache__/
+*.db
+data/sample/
+warehouse/
+*.joblib
+.env
