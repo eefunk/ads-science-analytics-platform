@@ -4,8 +4,12 @@ from .loaders import SQLiteLoader
 from .pipeline import AdsPipeline
 
 __all__ = [
-    "CSVExtractor", "SQLiteExtractor", "InMemoryExtractor",
-    "AuctionTransformer", "SupplyTransformer", "KPITransformer",
+    "CSVExtractor",
+    "SQLiteExtractor",
+    "InMemoryExtractor",
+    "AuctionTransformer",
+    "SupplyTransformer",
+    "KPITransformer",
     "SQLiteLoader",
     "AdsPipeline",
 ]

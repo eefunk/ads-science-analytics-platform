@@ -11,7 +11,9 @@ from data.generators.auction_data_generator import generate_all
 from src.etl.transformers import AuctionTransformer
 from src.models.auction_predictor import FillRatePredictor, ECPMPredictor
 from src.models.anomaly_detector import (
-    MLAnomalyDetector, StatisticalAnomalyDetector, BidAnomalyMonitor
+    MLAnomalyDetector,
+    StatisticalAnomalyDetector,
+    BidAnomalyMonitor,
 )
 
 
@@ -22,6 +24,7 @@ def auctions():
 
 
 # ── FillRatePredictor ─────────────────────────────────────────────────────────
+
 
 class TestFillRatePredictor:
     def test_fit_and_metrics(self, auctions):
@@ -73,6 +76,7 @@ class TestFillRatePredictor:
 
 # ── ECPMPredictor ─────────────────────────────────────────────────────────────
 
+
 class TestECPMPredictor:
     def test_fit_and_r2(self, auctions):
         model = ECPMPredictor()
@@ -95,6 +99,7 @@ class TestECPMPredictor:
 
 
 # ── MLAnomalyDetector ─────────────────────────────────────────────────────────
+
 
 class TestMLAnomalyDetector:
     def test_fit_and_predict(self, auctions):
@@ -128,6 +133,7 @@ class TestMLAnomalyDetector:
 
 # ── StatisticalAnomalyDetector ────────────────────────────────────────────────
 
+
 class TestStatisticalAnomalyDetector:
     def test_zscore_detection(self, auctions):
         detector = StatisticalAnomalyDetector(z_threshold=2.5)
@@ -149,6 +155,7 @@ class TestStatisticalAnomalyDetector:
 
 
 # ── BidAnomalyMonitor ─────────────────────────────────────────────────────────
+
 
 class TestBidAnomalyMonitor:
     def test_fit_learns_baselines(self, auctions):

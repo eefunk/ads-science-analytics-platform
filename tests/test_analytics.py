@@ -17,9 +17,11 @@ from src.analytics.kpi_framework import KPIEngine, KPI_REGISTRY
 def datasets():
     return generate_all(n_advertisers=80, n_auctions=10_000, n_supply=5_000, days=60)
 
+
 @pytest.fixture(scope="module")
 def auctions(datasets):
     return AuctionTransformer().transform(datasets["auctions"])
+
 
 @pytest.fixture(scope="module")
 def supply(datasets):
@@ -27,6 +29,7 @@ def supply(datasets):
 
 
 # ── AuctionAnalyzer ───────────────────────────────────────────────────────────
+
 
 class TestAuctionAnalyzer:
     def test_bid_spread_summary_columns(self, auctions):
@@ -77,11 +80,17 @@ class TestAuctionAnalyzer:
 
 # ── FeatureReleaseAnalyzer ────────────────────────────────────────────────────
 
+
 class TestFeatureReleaseAnalyzer:
     def test_diff_in_diff_keys(self, auctions):
         analyzer = FeatureReleaseAnalyzer(auctions)
         result = analyzer.diff_in_diff(metric="fill_rate")
-        for key in ["did_estimate", "p_value", "significant_at_5pct", "relative_lift_pct"]:
+        for key in [
+            "did_estimate",
+            "p_value",
+            "significant_at_5pct",
+            "relative_lift_pct",
+        ]:
             assert key in result, f"Missing key: {key}"
 
     def test_diff_in_diff_numeric(self, auctions):
@@ -100,6 +109,7 @@ class TestFeatureReleaseAnalyzer:
 
 
 # ── SupplyAnalyzer ────────────────────────────────────────────────────────────
+
 
 class TestSupplyAnalyzer:
     def test_inventory_health(self, supply, auctions):
@@ -125,6 +135,7 @@ class TestSupplyAnalyzer:
 
 # ── KPIEngine ─────────────────────────────────────────────────────────────────
 
+
 class TestKPIEngine:
     def test_compute_all_returns_all_kpis(self, auctions):
         engine = KPIEngine(auctions)
@@ -149,7 +160,9 @@ class TestKPIEngine:
         result = engine.compute_all(segment={"placement_type": "top_of_search"})
         # Should only reflect top_of_search auctions
         fill_rate_kpi = result.loc[result["kpi"] == "fill_rate", "value"].iloc[0]
-        expected = auctions[auctions["placement_type"] == "top_of_search"]["filled"].mean()
+        expected = auctions[auctions["placement_type"] == "top_of_search"][
+            "filled"
+        ].mean()
         assert abs(fill_rate_kpi - expected) < 0.01
 
     def test_alerts_subset_of_all(self, auctions):
@@ -161,9 +174,13 @@ class TestKPIEngine:
 
     def test_compute_by_segment(self, auctions):
         engine = KPIEngine(auctions)
-        result = engine.compute_by_segment("placement_type", kpi_names=["fill_rate", "ecpm"])
+        result = engine.compute_by_segment(
+            "placement_type", kpi_names=["fill_rate", "ecpm"]
+        )
         assert set(result["kpi"]) == {"fill_rate", "ecpm"}
-        assert result["placement_type"].nunique() == auctions["placement_type"].nunique()
+        assert (
+            result["placement_type"].nunique() == auctions["placement_type"].nunique()
+        )
 
     def test_trend_analysis(self, auctions):
         engine = KPIEngine(auctions)

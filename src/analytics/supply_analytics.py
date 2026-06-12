@@ -47,7 +47,9 @@ class SupplyAnalyzer:
         Identifies under-monetized and over-requested slots.
         """
         if self.auctions is None:
-            raise ValueError("Auctions data required for supply-demand balance analysis.")
+            raise ValueError(
+                "Auctions data required for supply-demand balance analysis."
+            )
 
         supply_daily = (
             self.supply.groupby(["date", "placement_type"], observed=True)
@@ -69,8 +71,12 @@ class SupplyAnalyzer:
             .reset_index()
         )
 
-        merged = supply_daily.merge(demand_daily, on=["date", "placement_type"], how="outer")
-        merged["fill_rate"] = (merged["filled_requests"] / merged["auction_requests"]).round(4)
+        merged = supply_daily.merge(
+            demand_daily, on=["date", "placement_type"], how="outer"
+        )
+        merged["fill_rate"] = (
+            merged["filled_requests"] / merged["auction_requests"]
+        ).round(4)
         merged["monetization_rate"] = (
             merged["revenue_usd"] / merged["available_slots"].replace(0, np.nan)
         ).round(4)
@@ -80,9 +86,7 @@ class SupplyAnalyzer:
 
         return merged.sort_values(["date", "placement_type"])
 
-    def floor_price_sensitivity(
-        self, placement: str = "top_of_search"
-    ) -> pd.DataFrame:
+    def floor_price_sensitivity(self, placement: str = "top_of_search") -> pd.DataFrame:
         """
         Model fill rate as a function of floor price.
         Useful for identifying the revenue-maximizing floor.
@@ -103,11 +107,13 @@ class SupplyAnalyzer:
                 df.loc[df["winning_bid_usd"] >= floor, "clearing_price_usd"].mean()
                 * filled
             )
-            rows.append({
-                "floor_usd": round(float(floor), 4),
-                "fill_rate": round(float(filled), 4),
-                "expected_rev_per_auction": round(float(rev_per_auction), 6),
-            })
+            rows.append(
+                {
+                    "floor_usd": round(float(floor), 4),
+                    "fill_rate": round(float(filled), 4),
+                    "expected_rev_per_auction": round(float(rev_per_auction), 6),
+                }
+            )
 
         result = pd.DataFrame(rows)
         # Find revenue-maximizing floor
@@ -131,7 +137,9 @@ class SupplyAnalyzer:
             .round(4)
             .reset_index()
         )
-        trend["fill_rate_rolling"] = trend["avg_fill_rate"].rolling(4, min_periods=1).mean().round(4)
+        trend["fill_rate_rolling"] = (
+            trend["avg_fill_rate"].rolling(4, min_periods=1).mean().round(4)
+        )
         return trend
 
     def ad_load_analysis(self) -> dict:
@@ -144,12 +152,14 @@ class SupplyAnalyzer:
             df.groupby("placement_type", observed=True)["available_slots"]
             .agg(["mean", "median", "max", "std"])
             .round(2)
-            .rename(columns={
-                "mean": "avg_ad_load",
-                "median": "median_ad_load",
-                "max": "max_ad_load",
-                "std": "std_ad_load",
-            })
+            .rename(
+                columns={
+                    "mean": "avg_ad_load",
+                    "median": "median_ad_load",
+                    "max": "max_ad_load",
+                    "std": "std_ad_load",
+                }
+            )
             .reset_index()
         )
         return {

@@ -7,22 +7,26 @@ import sys
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from data.generators.auction_data_generator import (
-    generate_advertisers, generate_campaigns, generate_auction_events
+    generate_advertisers,
+    generate_campaigns,
+    generate_auction_events,
 )
 from src.etl.transformers import AuctionTransformer, KPITransformer
 from src.etl.loaders import SQLiteLoader
 from src.etl.pipeline import AdsPipeline
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(scope="module")
 def small_advertisers():
     return generate_advertisers(50)
 
+
 @pytest.fixture(scope="module")
 def small_campaigns(small_advertisers):
     return generate_campaigns(small_advertisers, campaigns_per_adv=2)
+
 
 @pytest.fixture(scope="module")
 def small_auctions(small_campaigns):
@@ -30,6 +34,7 @@ def small_auctions(small_campaigns):
 
 
 # ── Generator tests ───────────────────────────────────────────────────────────
+
 
 class TestDataGenerators:
     def test_advertisers_shape(self, small_advertisers):
@@ -47,8 +52,14 @@ class TestDataGenerators:
 
     def test_auctions_have_required_columns(self, small_auctions):
         required = [
-            "auction_id", "timestamp", "placement_type", "device_type",
-            "winning_bid_usd", "clearing_price_usd", "filled", "ecpm",
+            "auction_id",
+            "timestamp",
+            "placement_type",
+            "device_type",
+            "winning_bid_usd",
+            "clearing_price_usd",
+            "filled",
+            "ecpm",
         ]
         for col in required:
             assert col in small_auctions.columns, f"Missing column: {col}"
@@ -68,6 +79,7 @@ class TestDataGenerators:
 
 
 # ── Transformer tests ─────────────────────────────────────────────────────────
+
 
 class TestAuctionTransformer:
     def test_transform_adds_time_features(self, small_auctions):
@@ -117,6 +129,7 @@ class TestKPITransformer:
 
 # ── Loader tests ──────────────────────────────────────────────────────────────
 
+
 class TestSQLiteLoader:
     def test_load_and_read_back(self, small_auctions, tmp_path):
         db = tmp_path / "test.db"
@@ -139,8 +152,11 @@ class TestSQLiteLoader:
 
 # ── Pipeline integration test ─────────────────────────────────────────────────
 
+
 class TestAdsPipeline:
-    def test_full_pipeline(self, small_advertisers, small_campaigns, small_auctions, tmp_path):
+    def test_full_pipeline(
+        self, small_advertisers, small_campaigns, small_auctions, tmp_path
+    ):
         datasets = {
             "advertisers": small_advertisers,
             "campaigns": small_campaigns,

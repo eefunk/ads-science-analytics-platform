@@ -16,8 +16,13 @@ class AuctionTransformer:
     """
 
     REQUIRED_COLS = [
-        "auction_id", "timestamp", "placement_type", "device_type",
-        "winning_bid_usd", "clearing_price_usd", "filled",
+        "auction_id",
+        "timestamp",
+        "placement_type",
+        "device_type",
+        "winning_bid_usd",
+        "clearing_price_usd",
+        "filled",
     ]
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -35,17 +40,21 @@ class AuctionTransformer:
 
         # ── Bid metrics ──────────────────────────────────────────────────────
         df["bid_spread"] = (
-            (df["winning_bid_usd"] - df["clearing_price_usd"])
-            / df["winning_bid_usd"].replace(0, np.nan)
-        ).fillna(0).round(4)
+            (
+                (df["winning_bid_usd"] - df["clearing_price_usd"])
+                / df["winning_bid_usd"].replace(0, np.nan)
+            )
+            .fillna(0)
+            .round(4)
+        )
 
-        df["margin_usd"] = (
-            df["winning_bid_usd"] - df["clearing_price_usd"]
-        ).round(4)
+        df["margin_usd"] = (df["winning_bid_usd"] - df["clearing_price_usd"]).round(4)
 
         # ── Performance flags ────────────────────────────────────────────────
         df["has_click"] = df.get("clicked", pd.Series(0, index=df.index)).astype(bool)
-        df["has_conversion"] = df.get("converted", pd.Series(0, index=df.index)).astype(bool)
+        df["has_conversion"] = df.get("converted", pd.Series(0, index=df.index)).astype(
+            bool
+        )
         df["ctr"] = np.where(df["filled"] == 1, df["has_click"].astype(float), np.nan)
         df["cvr"] = np.where(
             df["has_click"], df["has_conversion"].astype(float), np.nan
@@ -87,13 +96,12 @@ class SupplyTransformer:
         df["day_of_week"] = df["timestamp"].dt.day_name()
 
         # Monetized slots
-        df["monetized_slots"] = (
-            df["available_slots"] * df["fill_rate"]
-        ).round(2)
+        df["monetized_slots"] = (df["available_slots"] * df["fill_rate"]).round(2)
 
         # Supply health score: fill_rate penalized by floor price sensitivity
         df["supply_health"] = (
-            df["fill_rate"] * 0.7 + (1 - df["floor_price_usd"] / df["floor_price_usd"].max()) * 0.3
+            df["fill_rate"] * 0.7
+            + (1 - df["floor_price_usd"] / df["floor_price_usd"].max()) * 0.3
         ).round(4)
 
         print(f"[SupplyTransformer] Processed {len(df):,} supply events")
@@ -136,10 +144,18 @@ class KPITransformer:
 
         # Derived KPIs
         agg["fill_rate"] = (agg["filled_auctions"] / agg["total_auctions"]).round(4)
-        agg["ctr"] = (agg["total_clicks"] / agg["filled_auctions"].replace(0, np.nan)).round(4)
-        agg["cvr"] = (agg["total_conversions"] / agg["total_clicks"].replace(0, np.nan)).round(4)
-        agg["cpc_usd"] = (agg["total_revenue_usd"] / agg["total_clicks"].replace(0, np.nan)).round(4)
-        agg["rpm_usd"] = (agg["total_revenue_usd"] / agg["total_auctions"] * 1000).round(4)
+        agg["ctr"] = (
+            agg["total_clicks"] / agg["filled_auctions"].replace(0, np.nan)
+        ).round(4)
+        agg["cvr"] = (
+            agg["total_conversions"] / agg["total_clicks"].replace(0, np.nan)
+        ).round(4)
+        agg["cpc_usd"] = (
+            agg["total_revenue_usd"] / agg["total_clicks"].replace(0, np.nan)
+        ).round(4)
+        agg["rpm_usd"] = (
+            agg["total_revenue_usd"] / agg["total_auctions"] * 1000
+        ).round(4)
 
         print(f"[KPITransformer] Generated {len(agg):,} KPI rows across {group_by}")
         return agg

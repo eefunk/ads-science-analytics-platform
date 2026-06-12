@@ -39,7 +39,10 @@ class StatisticalAnomalyDetector:
         elif method == "iqr":
             q1, q3 = series.quantile(0.25), series.quantile(0.75)
             iqr = q3 - q1
-            lower, upper = q1 - self.iqr_multiplier * iqr, q3 + self.iqr_multiplier * iqr
+            lower, upper = (
+                q1 - self.iqr_multiplier * iqr,
+                q3 + self.iqr_multiplier * iqr,
+            )
             return (series < lower) | (series > upper)
         else:
             raise ValueError(f"Unknown method: {method}. Use 'zscore' or 'iqr'.")
@@ -58,17 +61,25 @@ class StatisticalAnomalyDetector:
         result = kpi_df.copy()
         result["is_anomaly"] = False
         for kpi_name, group in result.groupby("kpi", observed=True):
-            mask = self.detect(group[value_col].fillna(group[value_col].median()), method)
+            mask = self.detect(
+                group[value_col].fillna(group[value_col].median()), method
+            )
             result.loc[group.index, "is_anomaly"] = mask.values
 
-        result[result["is_anomaly"]].copy()  # noqa: local used below
+        result[result["is_anomaly"]].copy()  # noqa: F841
         result["anomaly_score"] = (
-            (result[value_col] - result.groupby("kpi")[value_col].transform("mean"))
-            / result.groupby("kpi")[value_col].transform("std")
-        ).abs().round(3)
+            (
+                (result[value_col] - result.groupby("kpi")[value_col].transform("mean"))
+                / result.groupby("kpi")[value_col].transform("std")
+            )
+            .abs()
+            .round(3)
+        )
 
-        print(f"[StatisticalAnomalyDetector] Found {result['is_anomaly'].sum()} anomalies "
-              f"across {result['kpi'].nunique()} KPIs")
+        print(
+            f"[StatisticalAnomalyDetector] Found {result['is_anomaly'].sum()} anomalies "
+            f"across {result['kpi'].nunique()} KPIs"
+        )
         return result
 
 
@@ -79,8 +90,12 @@ class MLAnomalyDetector:
     """
 
     FEATURE_COLS = [
-        "winning_bid_usd", "clearing_price_usd", "bid_spread",
-        "ecpm", "auction_depth", "bid_floor_usd",
+        "winning_bid_usd",
+        "clearing_price_usd",
+        "bid_spread",
+        "ecpm",
+        "auction_depth",
+        "bid_floor_usd",
     ]
 
     def __init__(self, contamination: float = 0.02, random_state: int = 42):
@@ -99,8 +114,10 @@ class MLAnomalyDetector:
         X = self._scaler.fit_transform(features)
         self._model.fit(X)
         self._is_fitted = True
-        print(f"[MLAnomalyDetector] Fitted on {len(df):,} samples "
-              f"(contamination={self.contamination})")
+        print(
+            f"[MLAnomalyDetector] Fitted on {len(df):,} samples "
+            f"(contamination={self.contamination})"
+        )
         return self
 
     def predict(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -116,8 +133,10 @@ class MLAnomalyDetector:
         result["is_anomaly"] = labels == -1
 
         n_anomalies = result["is_anomaly"].sum()
-        print(f"[MLAnomalyDetector] Flagged {n_anomalies:,} anomalies "
-              f"({n_anomalies / len(df):.2%} of {len(df):,})")
+        print(
+            f"[MLAnomalyDetector] Flagged {n_anomalies:,} anomalies "
+            f"({n_anomalies / len(df):.2%} of {len(df):,})"
+        )
         return result
 
     def anomaly_summary(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -167,7 +186,9 @@ class BidAnomalyMonitor:
                 "std": float(bids.std()),
                 "p99": float(bids.quantile(0.99)),
             }
-        print(f"[BidAnomalyMonitor] Learned baselines for {len(self._baselines)} placements")
+        print(
+            f"[BidAnomalyMonitor] Learned baselines for {len(self._baselines)} placements"
+        )
         return self
 
     def score(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -180,7 +201,9 @@ class BidAnomalyMonitor:
             mask = result["placement_type"] == placement
             if mask.sum() == 0:
                 continue
-            z = (result.loc[mask, "winning_bid_usd"] - stats["mean"]) / max(stats["std"], 1e-9)
+            z = (result.loc[mask, "winning_bid_usd"] - stats["mean"]) / max(
+                stats["std"], 1e-9
+            )
             result.loc[mask, "bid_z_score"] = z.round(3)
             result.loc[mask, "bid_is_anomaly"] = z.abs() > self.z_threshold
 

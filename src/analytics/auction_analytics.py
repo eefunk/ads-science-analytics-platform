@@ -71,8 +71,14 @@ class AuctionAnalyzer:
             df["bid_spread"]
             .resample(freq)
             .agg(["mean", "median", "std", "count"])
-            .rename(columns={"mean": "avg_spread", "median": "p50_spread",
-                              "std": "std_spread", "count": "n_auctions"})
+            .rename(
+                columns={
+                    "mean": "avg_spread",
+                    "median": "p50_spread",
+                    "std": "std_spread",
+                    "count": "n_auctions",
+                }
+            )
             .round(4)
         )
         result.index.name = "timestamp"
@@ -109,10 +115,10 @@ class AuctionAnalyzer:
         )
         return {
             "summary": {
-                "mean_depth":   df["auction_depth"].mean(),
+                "mean_depth": df["auction_depth"].mean(),
                 "median_depth": df["auction_depth"].median(),
-                "p25_depth":    df["auction_depth"].quantile(0.25),
-                "p75_depth":    df["auction_depth"].quantile(0.75),
+                "p25_depth": df["auction_depth"].quantile(0.25),
+                "p75_depth": df["auction_depth"].quantile(0.75),
             },
             "by_depth_bucket": by_depth,
             "depth_distribution": df["auction_depth"].value_counts().sort_index(),
@@ -190,7 +196,11 @@ class AuctionAnalyzer:
         isn't true long-term but is a reasonable first-pass estimate.
         """
         df = self.auctions.copy()
-        mask = (df["placement_type"] == placement) if placement else pd.Series(True, index=df.index)
+        mask = (
+            (df["placement_type"] == placement)
+            if placement
+            else pd.Series(True, index=df.index)
+        )
 
         new_floor = df.loc[mask, "bid_floor_usd"] * new_floor_multiplier
         still_filled = df.loc[mask, "winning_bid_usd"] >= new_floor
@@ -201,15 +211,19 @@ class AuctionAnalyzer:
         simulated_rev = df.loc[mask & still_filled, "revenue_usd"].sum()
 
         return {
-            "floor_multiplier":      new_floor_multiplier,
-            "placement":             placement or "all",
-            "baseline_fill_rate":    round(float(baseline_fill), 4),
-            "simulated_fill_rate":   round(float(simulated_fill), 4),
-            "fill_rate_delta":       round(float(simulated_fill - baseline_fill), 4),
-            "baseline_revenue_usd":  round(float(baseline_rev), 2),
+            "floor_multiplier": new_floor_multiplier,
+            "placement": placement or "all",
+            "baseline_fill_rate": round(float(baseline_fill), 4),
+            "simulated_fill_rate": round(float(simulated_fill), 4),
+            "fill_rate_delta": round(float(simulated_fill - baseline_fill), 4),
+            "baseline_revenue_usd": round(float(baseline_rev), 2),
             "simulated_revenue_usd": round(float(simulated_rev), 2),
-            "revenue_delta_pct":     round(float((simulated_rev / baseline_rev - 1) * 100), 2) if baseline_rev else 0.0,
-            "n_auctions_affected":   int(mask.sum()),
+            "revenue_delta_pct": (
+                round(float((simulated_rev / baseline_rev - 1) * 100), 2)
+                if baseline_rev
+                else 0.0
+            ),
+            "n_auctions_affected": int(mask.sum()),
         }
 
     def simulate_auction_format_change(
@@ -232,12 +246,14 @@ class AuctionAnalyzer:
         simulated_rev = df["winning_bid_usd"].sum()
         avg_spread = df["bid_spread"].mean()
         return {
-            "from_format":            from_format,
-            "to_format":              to_format,
-            "baseline_revenue_usd":   round(float(baseline_rev), 2),
-            "simulated_revenue_usd":  round(float(simulated_rev), 2),
-            "revenue_lift_pct":       round(float((simulated_rev / baseline_rev - 1) * 100), 2),
-            "avg_bid_spread":         round(float(avg_spread), 4),
+            "from_format": from_format,
+            "to_format": to_format,
+            "baseline_revenue_usd": round(float(baseline_rev), 2),
+            "simulated_revenue_usd": round(float(simulated_rev), 2),
+            "revenue_lift_pct": round(
+                float((simulated_rev / baseline_rev - 1) * 100), 2
+            ),
+            "avg_bid_spread": round(float(avg_spread), 4),
             "note": (
                 "First-price auctions incentivize bid-shading; "
                 "actual lift will be lower as advertisers adjust bids."
@@ -300,39 +316,51 @@ class FeatureReleaseAnalyzer:
         )
         df["treated_group"] = df["placement_type"].isin(treated_placements).astype(int)
 
-        groups = df.groupby(["treated_group", period_col], observed=True)["metric_val"].mean()
+        groups = df.groupby(["treated_group", period_col], observed=True)[
+            "metric_val"
+        ].mean()
 
         try:
-            pre_control  = float(groups.get((0, "pre"),  0))
+            pre_control = float(groups.get((0, "pre"), 0))
             post_control = float(groups.get((0, "post"), 0))
-            pre_treated  = float(groups.get((1, "pre"),  0))
+            pre_treated = float(groups.get((1, "pre"), 0))
             post_treated = float(groups.get((1, "post"), 0))
         except (KeyError, TypeError):
             return {"error": "Missing required treatment/period combinations"}
 
         did_estimate = (post_treated - pre_treated) - (post_control - pre_control)
 
-        pre_vals  = df[(df["treated_group"] == 1) & (df[period_col] == "pre")]["metric_val"]
-        post_vals = df[(df["treated_group"] == 1) & (df[period_col] == "post")]["metric_val"]
+        pre_vals = df[(df["treated_group"] == 1) & (df[period_col] == "pre")][
+            "metric_val"
+        ]
+        post_vals = df[(df["treated_group"] == 1) & (df[period_col] == "post")][
+            "metric_val"
+        ]
         if len(pre_vals) < 2 or len(post_vals) < 2:
             t_stat, p_val = float("nan"), float("nan")
         else:
             t_stat, p_val = stats.ttest_ind(post_vals.dropna(), pre_vals.dropna())
 
-        rel_lift = round(float(did_estimate / pre_treated * 100), 2) if pre_treated != 0 else 0.0
+        rel_lift = (
+            round(float(did_estimate / pre_treated * 100), 2)
+            if pre_treated != 0
+            else 0.0
+        )
         p_val_clean = round(float(p_val), 4) if p_val == p_val else None
 
         return {
-            "metric":              metric,
-            "pre_control":         round(pre_control,        4),
-            "post_control":        round(post_control,       4),
-            "pre_treated":         round(pre_treated,        4),
-            "post_treated":        round(post_treated,       4),
-            "did_estimate":        round(float(did_estimate), 4),
-            "relative_lift_pct":   rel_lift,
-            "t_statistic":         round(float(t_stat), 3) if t_stat == t_stat else None,
-            "p_value":             p_val_clean,
-            "significant_at_5pct": bool(p_val < 0.05) if p_val_clean is not None else None,
+            "metric": metric,
+            "pre_control": round(pre_control, 4),
+            "post_control": round(post_control, 4),
+            "pre_treated": round(pre_treated, 4),
+            "post_treated": round(post_treated, 4),
+            "did_estimate": round(float(did_estimate), 4),
+            "relative_lift_pct": rel_lift,
+            "t_statistic": round(float(t_stat), 3) if t_stat == t_stat else None,
+            "p_value": p_val_clean,
+            "significant_at_5pct": (
+                bool(p_val < 0.05) if p_val_clean is not None else None
+            ),
         }
 
     def adoption_curve(self, freq: str = "D") -> pd.DataFrame:

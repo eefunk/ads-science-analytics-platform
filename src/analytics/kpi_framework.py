@@ -22,8 +22,8 @@ from typing import Callable, Optional
 import numpy as np
 import pandas as pd
 
-
 # ── KPI Registry ─────────────────────────────────────────────────────────────
+
 
 @dataclass
 class KPIDefinition:
@@ -81,9 +81,7 @@ KPI_REGISTRY: list[KPIDefinition] = [
         alert_threshold=0.01,
         higher_is_better=True,
         category="quality",
-        compute=lambda df: (
-            df["clicked"].sum() / max(df["filled"].sum(), 1)
-        ),
+        compute=lambda df: (df["clicked"].sum() / max(df["filled"].sum(), 1)),
     ),
     KPIDefinition(
         name="cvr",
@@ -93,9 +91,7 @@ KPI_REGISTRY: list[KPIDefinition] = [
         alert_threshold=0.005,
         higher_is_better=True,
         category="quality",
-        compute=lambda df: (
-            df["converted"].sum() / max(df["clicked"].sum(), 1)
-        ),
+        compute=lambda df: (df["converted"].sum() / max(df["clicked"].sum(), 1)),
     ),
     KPIDefinition(
         name="auction_depth",
@@ -125,7 +121,9 @@ KPI_REGISTRY: list[KPIDefinition] = [
         alert_threshold=0.15,
         higher_is_better=False,
         category="delivery",
-        compute=lambda df: df.get("below_floor", pd.Series(False, index=df.index)).mean(),
+        compute=lambda df: df.get(
+            "below_floor", pd.Series(False, index=df.index)
+        ).mean(),
     ),
 ]
 
@@ -133,6 +131,7 @@ KPI_BY_NAME = {k.name: k for k in KPI_REGISTRY}
 
 
 # ── KPI Engine ────────────────────────────────────────────────────────────────
+
 
 class KPIEngine:
     """Compute, track, and alert on standardized KPIs."""
@@ -177,18 +176,20 @@ class KPIEngine:
                     else:
                         status = "below_target"
 
-            rows.append({
-                "kpi": kpi.name,
-                "value": round(value, 6) if value is not None else None,
-                "unit": kpi.unit,
-                "target": kpi.target,
-                "alert_threshold": kpi.alert_threshold,
-                "status": status,
-                "category": kpi.category,
-                "higher_is_better": kpi.higher_is_better,
-                "description": kpi.description,
-                "n_samples": len(df),
-            })
+            rows.append(
+                {
+                    "kpi": kpi.name,
+                    "value": round(value, 6) if value is not None else None,
+                    "unit": kpi.unit,
+                    "target": kpi.target,
+                    "alert_threshold": kpi.alert_threshold,
+                    "status": status,
+                    "category": kpi.category,
+                    "higher_is_better": kpi.higher_is_better,
+                    "description": kpi.description,
+                    "n_samples": len(df),
+                }
+            )
 
         return pd.DataFrame(rows)
 
@@ -206,13 +207,15 @@ class KPIEngine:
                     value = float(kpi.compute(group))
                 except Exception:
                     value = None
-                rows.append({
-                    segment_col: segment_val,
-                    "kpi": kpi.name,
-                    "value": round(value, 6) if value is not None else None,
-                    "unit": kpi.unit,
-                    "n_samples": len(group),
-                })
+                rows.append(
+                    {
+                        segment_col: segment_val,
+                        "kpi": kpi.name,
+                        "value": round(value, 6) if value is not None else None,
+                        "unit": kpi.unit,
+                        "n_samples": len(group),
+                    }
+                )
         return pd.DataFrame(rows)
 
     def trend_analysis(
@@ -233,9 +236,11 @@ class KPIEngine:
         if group_col:
             results = []
             for seg_val, grp in df.groupby(group_col, observed=True):
-                agg = grp.resample(freq).apply(
-                    lambda x: kpi.compute(x) if len(x) > 0 else np.nan
-                ).rename("value")
+                agg = (
+                    grp.resample(freq)
+                    .apply(lambda x: kpi.compute(x) if len(x) > 0 else np.nan)
+                    .rename("value")
+                )
                 agg = agg.reset_index()
                 agg[group_col] = seg_val
                 results.append(agg)
@@ -248,7 +253,9 @@ class KPIEngine:
                 .reset_index()
             )
 
-        result["rolling_avg"] = result["value"].rolling(7, min_periods=1).mean().round(6)
+        result["rolling_avg"] = (
+            result["value"].rolling(7, min_periods=1).mean().round(6)
+        )
         result["kpi"] = kpi_name
         return result
 

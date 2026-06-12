@@ -40,7 +40,9 @@ class SQLiteLoader:
             Number of rows written.
         """
         with sqlite3.connect(self.db_path) as conn:
-            df.to_sql(table, conn, if_exists=if_exists, index=index, chunksize=chunksize)
+            df.to_sql(
+                table, conn, if_exists=if_exists, index=index, chunksize=chunksize
+            )
         print(f"[SQLiteLoader] Wrote {len(df):,} rows → {table} ({if_exists})")
         return len(df)
 

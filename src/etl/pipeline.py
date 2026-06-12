@@ -87,37 +87,45 @@ class AdsPipeline:
     def warehouse_summary(self) -> pd.DataFrame:
         """Return row counts for all tables in the warehouse."""
         import sqlite3
+
         conn = sqlite3.connect(self.db_path)
-        tables = pd.read_sql(
-            "SELECT name FROM sqlite_master WHERE type='table'", conn
-        )["name"].tolist()
+        tables = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table'", conn)[
+            "name"
+        ].tolist()
         rows = []
         for t in tables:
             count = pd.read_sql(f"SELECT COUNT(*) AS n FROM {t}", conn).iloc[0]["n"]
             rows.append({"table": t, "rows": int(count)})
         conn.close()
-        return pd.DataFrame(rows).sort_values("rows", ascending=False).reset_index(drop=True)
+        return (
+            pd.DataFrame(rows)
+            .sort_values("rows", ascending=False)
+            .reset_index(drop=True)
+        )
 
     # ── Internal stages ───────────────────────────────────────────────────────
 
     def _extract(self, datasets: Optional[dict]) -> dict:
         """Extract raw data from either in-memory datasets or CSV files."""
         if datasets is not None:
-            self._log("[AdsPipeline] Using in-memory datasets (skipping CSV extraction)")
+            self._log(
+                "[AdsPipeline] Using in-memory datasets (skipping CSV extraction)"
+            )
+            extractor = InMemoryExtractor(datasets)
             return {
-                "auctions":    InMemoryExtractor(datasets["auctions"]).extract(),
-                "supply":      InMemoryExtractor(datasets["supply"]).extract(),
-                "advertisers": InMemoryExtractor(datasets["advertisers"]).extract(),
-                "campaigns":   InMemoryExtractor(datasets["campaigns"]).extract(),
+                "auctions": extractor.extract("auctions"),
+                "supply": extractor.extract("supply"),
+                "advertisers": extractor.extract("advertisers"),
+                "campaigns": extractor.extract("campaigns"),
             }
 
         self._log(f"[AdsPipeline] Extracting CSVs from {self.data_dir}")
         extractor = CSVExtractor(self.data_dir)
         return {
-            "auctions":    extractor.extract("auctions.csv"),
-            "supply":      extractor.extract("supply.csv"),
-            "advertisers": extractor.extract("advertisers.csv"),
-            "campaigns":   extractor.extract("campaigns.csv"),
+            "auctions": extractor.extract("auctions"),
+            "supply": extractor.extract("supply"),
+            "advertisers": extractor.extract("advertisers"),
+            "campaigns": extractor.extract("campaigns"),
         }
 
     def _transform(self, raw: dict) -> dict:
@@ -137,8 +145,8 @@ class AdsPipeline:
         )
 
         return {
-            "auctions":      auctions,
-            "supply":        supply,
+            "auctions": auctions,
+            "supply": supply,
             "kpi_snapshots": pd.concat([kpi_daily, kpi_hourly], ignore_index=True),
         }
 
@@ -148,12 +156,12 @@ class AdsPipeline:
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
 
         # Dimension tables (raw)
-        self.loader.load(raw["advertisers"], "dim_advertiser",   strategy="replace")
-        self.loader.load(raw["campaigns"],   "dim_campaign",     strategy="replace")
+        self.loader.load(raw["advertisers"], "dim_advertiser", strategy="replace")
+        self.loader.load(raw["campaigns"], "dim_campaign", strategy="replace")
 
         # Fact tables (transformed)
         self.loader.load(transformed["auctions"], "fact_auctions", strategy="replace")
-        self.loader.load(transformed["supply"],   "fact_supply",   strategy="replace")
+        self.loader.load(transformed["supply"], "fact_supply", strategy="replace")
 
         # KPI snapshots
         self.loader.load(transformed["kpi_snapshots"], "kpi_daily", strategy="replace")
@@ -171,14 +179,19 @@ if __name__ == "__main__":
     import sys
 
     parser = argparse.ArgumentParser(description="Run AdsPipeline ETL")
-    parser.add_argument("--data-dir", default="data/sample", help="Path to CSV data directory")
+    parser.add_argument(
+        "--data-dir", default="data/sample", help="Path to CSV data directory"
+    )
     parser.add_argument("--db", default="warehouse/ads.db", help="SQLite output path")
-    parser.add_argument("--generate", action="store_true", help="Generate synthetic data first")
+    parser.add_argument(
+        "--generate", action="store_true", help="Generate synthetic data first"
+    )
     args = parser.parse_args()
 
     if args.generate:
         sys.path.insert(0, str(Path(__file__).parents[2]))
         from data.generators.auction_data_generator import generate_all  # noqa: E402
+
         generate_all(output_dir=args.data_dir)
 
     pipeline = AdsPipeline(data_dir=args.data_dir, db_path=args.db)
